@@ -534,10 +534,13 @@ val splitedLines = input.map(line => line.split(" "))
 | Data Transfer| Batch| Micro-Batch| Pipelined and Batch|
 | Programming Languages| Java, C, C++, Ruby, Groovy, Perl, Python| Java, Scala, Python and R| Java and Scala|
 | Programming Model| MapReduce| Resilient Distributed Datasets (RDD)| Cyclic Dataflows|
-| Memory Management| Disk Based| JVM Managed| Active Managed|
+| Memory Management| Disk Based| JVM Managed| Automatic Memory Management. 
+                                              It has its own memory management system, separate from Java’s garbage collector|
 | Latency| Low| Medium| Low|
 | Throughput| Medium| High| High|
-| Optimization| Manual| Manual| Automatic|
+| Optimization| Manual. Jobs has to be manually optimize| Manual. Jobs has to be manually optimize| Automatic. Flink jobs are automatically optimized. Flink comes with an optimizer that is independent with actual programming interface|
+| Duplicate Elimination| NA| Spark process every records exactly once hence eliminates duplication| Flink process every records exactly once hence eliminates duplication|
+| Windows Criteria| NA| Spark has time-based Window criteria| Flink has record-based, time-baed or any custom user-defined Window criteria|
 | API| Low-level| High-level| High-level|
 | Streaming Support| NA| Spark Streaming| Flink Streaming|
 | SQL Support| Hive, Impala| SparkSQL| Table API and SQL|
