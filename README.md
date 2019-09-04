@@ -248,7 +248,7 @@ DataStream<Integer> output = iterationBody.filter(/* some other part of the stre
 $ git clone https://github.com/apache/flink.git
 $ cd flink
 $ git checkout release-1.8.1
-$ mvn clean install -Pinclude-kinesis -DskipTests
+$ mvn clean install -Pinclude-kinesis -Pinclude-hadoop -DskipTests
 ```
 
 **2. Start Flink Cluster**
@@ -549,6 +549,8 @@ val splitedLines = input.map(line => line.split(" "))
 ## 6. References
 
 https://ci.apache.org/projects/flink/flink-docs-stable/dev/stream/operators/index.html
+
+https://ci.apache.org/projects/flink/flink-docs-stable/dev/stream/operators/windows.html
 
 https://ci.apache.org/projects/flink/flink-docs-stable/dev/batch
 

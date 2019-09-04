@@ -1,28 +1,22 @@
 package com.seedotech;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.common.serialization.Encoder;
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.core.io.SimpleVersionedSerializer;
-import org.apache.flink.runtime.state.filesystem.FsStateBackend;
-import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.DateTimeBucketAssigner;
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
+import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.OutputStream;
 import java.io.PrintStream;
 
 /**
@@ -37,11 +31,13 @@ import java.io.PrintStream;
  * and run this example with the hostname and the port as arguments.
  */
 @SuppressWarnings("serial")
-public class StreamingWordCount {
+public class StreamingWordProcessing {
+    private static Logger LOG = LoggerFactory.getLogger(StreamingWordProcessing.class);
+
     final static int MAX_MEM_STATE_SIZE = 1000000000;
     final static String OUTPUT_FILE_PATH = "/home/raycad/tmp/raycad";
     // Computation window time in seconds
-    final static int COMPUTATION_WINDOW_TIME = 1;
+    final static int COMPUTATION_WINDOW_TIME = 5;
 
     public static void main(String[] args) throws Exception {
 
@@ -81,14 +77,7 @@ public class StreamingWordCount {
                 })
                 .keyBy("word")
                 .timeWindow(Time.seconds(COMPUTATION_WINDOW_TIME))
-                .reduce(new ReduceFunction<WordWithCount>() {
-                    @Override
-                    public WordWithCount reduce(WordWithCount a, WordWithCount b) {
-//                        long threadId = Thread.currentThread().getId();
-//                        System.out.println(String.format(">>>> [RAYCAD] - Thread ID = %d - %s: %d", threadId, a.word, a.count + b.count));
-                        return new WordWithCount(a.word, a.count + b.count);
-                    }
-                });
+                .process(new WordProcessingWindowFunction());
 
         // Configure File sink
         StreamingFileSink<WordWithCount> sink = StreamingFileSink
@@ -110,12 +99,29 @@ public class StreamingWordCount {
         env.execute("Streaming Window WordCount");
     }
 
-    private static class WordCountFlatMapFunction implements FlatMapFunction<String, WordWithCount> {
+    /*private static class DataReduceFunction implements ReduceFunction<WordWithCount> {
+
+        public WordWithCount reduce(WordWithCount a, WordWithCount b) {
+            return new WordWithCount(a.word, a.count + b.count);
+        }
+    }*/
+
+    private static class WordProcessingWindowFunction extends ProcessWindowFunction<WordWithCount, WordWithCount, Tuple, TimeWindow> {
+
         @Override
-        public void flatMap(String value, Collector<WordWithCount> out) throws Exception {
-            for (String word : value.split(" ")) {
-                out.collect(new WordWithCount(word, 1));
+        public void process(Tuple key, Context context, Iterable<WordWithCount> input, Collector<WordWithCount> out) {
+            long count = 0;
+            for (WordWithCount in: input) {
+                count += in.count;
             }
+
+            String word = key.toString();
+            // Cleans up the brackets in the beginning and end
+            word = word.substring(1, word.length()-1);
+
+            LOG.info(String.format(">>>> [PROCESSING]: %s = %d", word, count));
+
+            out.collect(new WordWithCount(word, count));
         }
     }
 
@@ -127,7 +133,7 @@ public class StreamingWordCount {
         @Override
         public String getBucketId(WordWithCount element, Context context) {
             String bucketId = super.getBucketId(element, context);
-            System.out.println(String.format(">>>> [RAYCAD] - Bucket ID = %s. Data = %s", bucketId, element.toString()));
+            System.out.println(String.format(">>>> [STORING] - Bucket ID = %s. Data = %s", bucketId, element.toString()));
             return bucketId + "/" + element.word;
         }
     }
